@@ -1,31 +1,58 @@
-const { GoogleGenAI } = require('@google/genai');
+const { GoogleGenAI } = require("@google/genai");
 
-const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+const ai = new GoogleGenAI({
+    apiKey: process.env.GEMINI_API_KEY,
+});
 
 const SYSTEM_PROMPT =
-  process.env.RAG_SYSTEM_PROMPT +
-  "\n\n" +
-  process.env.DIAGRAM_RULES;
+    process.env.RAG_SYSTEM_PROMPT +
+    "\n\n" +
+    process.env.DIAGRAM_RULES;
 
-// history: [{ role: 'user' | 'model', text }] loaded from Mongo
-async function generateResponse(question, context, history = []) {
-    const contents = [
-        ...history.map((m) => ({ role: m.role, parts: [{ text: m.text }] })),
-        {
-            role: 'user',
-            parts: [{ text: `Context:\n${context}\n\nQuestion: ${question}` }],
-        },
-    ];
+async function generateResponse(question, context, history, res) {
 
-    const response = await ai.models.generateContent({
-        model: process.env.GEMINI_MODEL || 'gemini-2.5-flash',
-        contents,
+    const messages = history.map((message) => ({
+        role: message.role,
+        parts: [
+            { text: message.text }
+        ],
+    }));
+
+    messages.push({
+        role: "user",
+        parts: [
+            {
+                text: `Context:
+${context}
+
+Question:
+${question}`
+            }
+        ],
+    });
+
+    const response = await ai.models.generateContentStream({
+        model: process.env.GEMINI_MODEL || "gemini-3.1-flash-lite",
+        contents: messages,
         config: {
-            systemInstruction: [SYSTEM_PROMPT].filter(Boolean).join('\n\n'),
+            systemInstruction: SYSTEM_PROMPT,
         },
     });
 
-    return response.text;
+    let modelResponse = "";
+
+    for await (const chunk of response) {
+        const text = chunk.text || "";
+
+        if (text) {
+            modelResponse += text;
+            res.write(text);
+        }
+    }
+
+    return modelResponse;
 }
 
-module.exports = { generateResponse };
+module.exports = {
+    generateResponse,
+};
