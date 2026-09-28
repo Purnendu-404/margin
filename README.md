@@ -143,7 +143,6 @@ Create a `.env` file in `backend/` with your MongoDB, Gemini, Pinecone, and JWT 
 
 ## 🚧 Future Improvements
 
-* Streaming responses
 * Better PDF/OCR support
 * Source citations
 * Multi-document collections
